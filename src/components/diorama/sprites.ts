@@ -202,98 +202,191 @@ export function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, time: number
   } else {
     pos = lerpPt(dock, WORLD.shipDepart, ship.t);
   }
-  // bob
   const bob = Math.sin(time * 1.2 + ship.quay * 1.7) * 0.6;
-  const hull = drawShipHullAt(ctx, pos, bob);
-  // deck containers
-  for (let i = 0; i < Math.min(6, ship.containersOnboard); i++) {
-    const px = pos.x - 1.4 + i * 0.55;
-    drawBox(
-      ctx,
-      { x: px, y: pos.y - 0.4 },
-      0.45,
-      0.6,
-      6,
-      C.containerTop,
-      C.containerLeft,
-      C.containerRight,
-    );
+
+  // wake trail when moving
+  if (ship.state !== "docked") {
+    drawWake(ctx, pos, ship.state === "departing" ? -1 : 1, time);
   }
+
+  const hull = drawShipHullAt(ctx, pos, bob, ship);
   if (ship.state === "docked") {
-    // label
     const p = iso({ x: pos.x, y: pos.y });
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.font = "600 11px 'Space Grotesk', sans-serif";
-    ctx.fillText(ship.name, p.x - 18, p.y - 38 + bob);
+    ctx.fillText(ship.name, p.x - 18, p.y - 58 + bob);
   }
   return hull;
 }
 
-function drawShipHullAt(ctx: CanvasRenderingContext2D, pos: Pt, bob: number) {
-  // hull as elongated box along x
-  const sx = 3.2,
-    sy = 1.0;
-  const a = iso({ x: pos.x - sx / 2, y: pos.y - sy / 2 });
-  const b = iso({ x: pos.x + sx / 2, y: pos.y - sy / 2 });
-  const c = iso({ x: pos.x + sx / 2, y: pos.y + sy / 2 });
-  const d = iso({ x: pos.x - sx / 2, y: pos.y + sy / 2 });
-  const h = 8;
-  // shadow
+function drawWake(ctx: CanvasRenderingContext2D, pos: Pt, dir: number, time: number) {
+  ctx.save();
+  ctx.fillStyle = "rgba(180,210,255,0.18)";
+  for (let i = 1; i < 6; i++) {
+    const p = iso({ x: pos.x + dir * i * 0.6, y: pos.y });
+    const rx = 14 + i * 3;
+    const ry = 3 + i * 0.6;
+    const a = 0.18 - i * 0.025 + Math.sin(time * 4 + i) * 0.01;
+    ctx.fillStyle = `rgba(180,210,255,${Math.max(0, a)})`;
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 4, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawShipHullAt(ctx: CanvasRenderingContext2D, pos: Pt, bob: number, ship: Ship) {
+  // Hull footprint with a tapered bow.
+  const sx = 3.6;
+  const sy = 1.0;
+  const hullH = 10;
+  const deckH = 4;
+
+  const sternL = iso({ x: pos.x - sx / 2, y: pos.y - sy / 2 });
+  const sternR = iso({ x: pos.x - sx / 2, y: pos.y + sy / 2 });
+  const midR = iso({ x: pos.x + sx / 2 - 0.4, y: pos.y + sy / 2 });
+  const midL = iso({ x: pos.x + sx / 2 - 0.4, y: pos.y - sy / 2 });
+  // bow tip (single point ahead)
+  const bow = iso({ x: pos.x + sx / 2 + 0.3, y: pos.y });
+
+  // soft shadow on water
   ctx.fillStyle = "rgba(0,0,0,0.35)";
   ctx.beginPath();
   ctx.ellipse(
-    (a.x + c.x) / 2,
-    (a.y + c.y) / 2 + 6,
-    Math.abs(b.x - d.x) / 2,
-    6,
+    (sternL.x + bow.x) / 2,
+    (sternR.y + sternL.y) / 2 + 8,
+    Math.abs(bow.x - sternL.x) / 1.9,
+    7,
     0,
     0,
     Math.PI * 2,
   );
   ctx.fill();
-  // hull faces
+
   ctx.translate(0, bob);
-  // top deck
+
+  // Hull side (right/front-facing)
   ctx.beginPath();
-  ctx.moveTo(a.x, a.y - h);
-  ctx.lineTo(b.x, b.y - h);
-  ctx.lineTo(c.x, c.y - h);
-  ctx.lineTo(d.x, d.y - h);
+  ctx.moveTo(sternR.x, sternR.y - hullH);
+  ctx.lineTo(midR.x, midR.y - hullH);
+  ctx.lineTo(bow.x, bow.y - hullH * 0.7);
+  ctx.lineTo(bow.x, bow.y);
+  ctx.lineTo(midR.x, midR.y);
+  ctx.lineTo(sternR.x, sternR.y);
   ctx.closePath();
-  ctx.fillStyle = C.shipDeck;
+  ctx.fillStyle = shade(C.shipHull, 12);
   ctx.fill();
-  ctx.strokeStyle = "#0a1320";
+  ctx.strokeStyle = "#05101e";
   ctx.lineWidth = 1;
   ctx.stroke();
-  // left
+
+  // Hull side (left/back-facing) — darker
   ctx.beginPath();
-  ctx.moveTo(d.x, d.y - h);
-  ctx.lineTo(c.x, c.y - h);
-  ctx.lineTo(c.x, c.y);
-  ctx.lineTo(d.x, d.y);
+  ctx.moveTo(sternL.x, sternL.y - hullH);
+  ctx.lineTo(midL.x, midL.y - hullH);
+  ctx.lineTo(bow.x, bow.y - hullH * 0.7);
+  ctx.lineTo(bow.x, bow.y);
+  ctx.lineTo(midL.x, midL.y);
+  ctx.lineTo(sternL.x, sternL.y);
   ctx.closePath();
   ctx.fillStyle = C.shipHull;
   ctx.fill();
   ctx.stroke();
-  // right
+
+  // waterline stripe
+  ctx.strokeStyle = "rgba(220,235,255,0.55)";
+  ctx.lineWidth = 1.2;
   ctx.beginPath();
-  ctx.moveTo(b.x, b.y - h);
-  ctx.lineTo(c.x, c.y - h);
-  ctx.lineTo(c.x, c.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.closePath();
-  ctx.fillStyle = shade(C.shipHull, 8);
-  ctx.fill();
+  ctx.moveTo(sternR.x, sternR.y - 2);
+  ctx.lineTo(midR.x, midR.y - 2);
+  ctx.lineTo(bow.x, bow.y - 1);
   ctx.stroke();
+
+  // Deck (top) — quad from stern to bow tip
+  ctx.beginPath();
+  ctx.moveTo(sternL.x, sternL.y - hullH);
+  ctx.lineTo(midL.x, midL.y - hullH);
+  ctx.lineTo(bow.x, bow.y - hullH * 0.7);
+  ctx.lineTo(midR.x, midR.y - hullH);
+  ctx.lineTo(sternR.x, sternR.y - hullH);
+  ctx.closePath();
+  ctx.fillStyle = C.shipDeck;
+  ctx.fill();
+  ctx.strokeStyle = "#0a1320";
+  ctx.stroke();
+
+  // Cargo hold containers stacked on deck (between stern and 0.6 from bow)
+  const stacks = Math.min(8, Math.max(2, ship.containersOnboard / 3));
+  const palette = ["#22d3ee", "#f59e0b", "#10b981", "#a78bfa", "#f43f5e"];
+  for (let i = 0; i < stacks; i++) {
+    const fx = pos.x - sx / 2 + 0.25 + i * 0.38;
+    const col = palette[(i + ship.quay) % palette.length];
+    drawBox(
+      ctx,
+      { x: fx, y: pos.y - 0.32 },
+      0.32,
+      0.64,
+      hullH + 4,
+      col,
+      shade(col, -30),
+      shade(col, -15),
+    );
+    // second stack tier sometimes
+    if (i % 2 === 0) {
+      drawBox(
+        ctx,
+        { x: fx, y: pos.y - 0.32 },
+        0.32,
+        0.64,
+        hullH + 8,
+        shade(col, 10),
+        shade(col, -20),
+        shade(col, -5),
+      );
+    }
+  }
+
+  // Superstructure (bridge) at stern
+  const bridgeX = pos.x - sx / 2 + 0.1;
+  drawBox(
+    ctx,
+    { x: bridgeX, y: pos.y - 0.42 },
+    0.45,
+    0.84,
+    hullH + deckH + 6,
+    "#e2e8f0",
+    "#475569",
+    "#94a3b8",
+  );
+  // bridge windows
+  const bp = iso({ x: bridgeX + 0.05, y: pos.y - 0.35 });
+  ctx.fillStyle = "#0ea5e9";
+  ctx.fillRect(bp.x + 2, bp.y - hullH - deckH - 4, 14, 3);
+
+  // smokestack
+  const sp = iso({ x: bridgeX + 0.18, y: pos.y - 0.05 });
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(sp.x - 3, sp.y - hullH - deckH - 14, 6, 10);
+  ctx.fillStyle = "#f43f5e";
+  ctx.fillRect(sp.x - 3, sp.y - hullH - deckH - 10, 6, 2);
+  // smoke puffs
+  ctx.fillStyle = "rgba(200,210,220,0.35)";
+  for (let i = 0; i < 3; i++) {
+    const t = (time * 1.5 + i * 0.7) % 3;
+    ctx.beginPath();
+    ctx.arc(sp.x + t * 4, sp.y - hullH - deckH - 16 - t * 6, 3 + t, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.translate(0, -bob);
-  // hit box (rough)
   return {
-    minX: a.x,
-    maxX: c.x,
-    minY: a.y - h - 8,
-    maxY: c.y + 6,
+    minX: sternL.x,
+    maxX: bow.x,
+    minY: sternL.y - hullH - 20,
+    maxY: sternR.y + 8,
   };
 }
+
 
 // ------- cranes -------
 export function drawCrane(ctx: CanvasRenderingContext2D, idx: number, time: number) {
