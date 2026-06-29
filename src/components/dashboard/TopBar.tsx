@@ -1,14 +1,16 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Anchor, Search, Bell, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const NAV = [
-  { label: "Operations", to: "/" },
-  { label: "Fleet", to: "/" },
-  { label: "Warehouse", to: "/" },
-  { label: "Reports", to: "/" },
+  { label: "Operations", to: "/" as const },
+  { label: "Fleet", to: "/fleet" as const },
+  { label: "Warehouse", to: "/warehouse" as const },
+  { label: "Reports", to: "/reports" as const },
 ];
 
 export function TopBar() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card/60 px-4 backdrop-blur">
       <div className="flex items-center gap-8">
@@ -24,17 +26,21 @@ export function TopBar() {
           </div>
         </Link>
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV.map((n, i) => (
-            <Link
-              key={n.label}
-              to={n.to}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent ${
-                i === 0 ? "bg-accent text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              {n.label}
-            </Link>
-          ))}
+          {NAV.map((n) => {
+            const active = pathname === n.to;
+            return (
+              <Link
+                key={n.label}
+                to={n.to}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent",
+                  active ? "bg-accent text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
         </nav>
       </div>
       <div className="flex items-center gap-2">
