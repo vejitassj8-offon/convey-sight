@@ -209,7 +209,7 @@ export function drawShip(ctx: CanvasRenderingContext2D, ship: Ship, time: number
     drawWake(ctx, pos, ship.state === "departing" ? -1 : 1, time);
   }
 
-  const hull = drawShipHullAt(ctx, pos, bob, ship);
+  const hull = drawShipHullAt(ctx, pos, bob, ship, time);
   if (ship.state === "docked") {
     const p = iso({ x: pos.x, y: pos.y });
     ctx.fillStyle = "rgba(255,255,255,0.9)";
@@ -235,7 +235,7 @@ function drawWake(ctx: CanvasRenderingContext2D, pos: Pt, dir: number, time: num
   ctx.restore();
 }
 
-function drawShipHullAt(ctx: CanvasRenderingContext2D, pos: Pt, bob: number, ship: Ship) {
+function drawShipHullAt(ctx: CanvasRenderingContext2D, pos: Pt, bob: number, ship: Ship, time: number) {
   // Hull footprint with a tapered bow.
   const sx = 3.6;
   const sy = 1.0;
