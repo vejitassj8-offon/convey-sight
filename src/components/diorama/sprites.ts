@@ -495,24 +495,10 @@ export function drawVehicle(ctx: CanvasRenderingContext2D, v: Vehicle): Pt {
     } else {
       pos = lerpPt(slot, WORLD.truckExit, v.t);
     }
-    // cab + trailer
-    drawBox(ctx, { x: pos.x, y: pos.y }, 0.5, 1.4, 8, C.truckBody, C.truckDark, shade(C.truckBody, -15));
-    drawBox(ctx, { x: pos.x + 0.55, y: pos.y + 0.2 }, 0.4, 1.0, 7, "#475569", "#1e293b", "#334155");
-    if (v.load > 0) {
-      drawBox(
-        ctx,
-        { x: pos.x + 0.02, y: pos.y + 0.05 },
-        0.45,
-        1.3,
-        12,
-        C.containerTop,
-        C.containerLeft,
-        C.containerRight,
-      );
-    }
+    drawTruck(ctx, pos, v);
     return pos;
   } else {
-    // train: long line of flatcars along rail
+    // train: locomotive + flatcars
     const r = WORLD.rail;
     const startX = r.x + 0.5;
     let baseX: number;
@@ -523,35 +509,148 @@ export function drawVehicle(ctx: CanvasRenderingContext2D, v: Vehicle): Pt {
     } else {
       baseX = startX;
     }
-    // 4 cars
-    for (let i = 0; i < 4; i++) {
-      const cx = baseX + i * 1.6;
-      drawBox(
-        ctx,
-        { x: cx, y: r.y + 0.3 },
-        1.4,
-        0.5,
-        6,
-        i === 0 ? C.trainBody : "#475569",
-        i === 0 ? C.trainDark : "#1e293b",
-        i === 0 ? shade(C.trainBody, -15) : "#334155",
-      );
-      if (v.load > i * 4) {
-        drawBox(
-          ctx,
-          { x: cx + 0.1, y: r.y + 0.35 },
-          1.2,
-          0.4,
-          8,
-          C.containerTop,
-          C.containerLeft,
-          C.containerRight,
-        );
-      }
-    }
+    drawTrain(ctx, baseX, r.y, v);
     return { x: baseX, y: r.y + 0.5 };
   }
 }
+
+function drawTruck(ctx: CanvasRenderingContext2D, pos: Pt, v: Vehicle) {
+  // soft shadow
+  const sh = iso({ x: pos.x + 0.5, y: pos.y + 0.7 });
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(sh.x, sh.y + 5, 26, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Trailer chassis (rear)
+  drawBox(ctx, { x: pos.x - 0.05, y: pos.y + 0.05 }, 0.55, 1.5, 3,
+    "#1f2937", "#0b1220", "#111827");
+  // Trailer body (container-look)
+  const loaded = v.load > 0;
+  const top = loaded ? C.containerTop : "#cbd5e1";
+  const left = loaded ? C.containerLeft : "#475569";
+  const right = loaded ? C.containerRight : "#64748b";
+  drawBox(ctx, { x: pos.x, y: pos.y + 0.1 }, 0.5, 1.4, 12, top, left, right);
+  // corrugation lines on trailer
+  ctx.strokeStyle = "rgba(0,0,0,0.25)";
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 6; i++) {
+    const a = iso({ x: pos.x + 0.5, y: pos.y + 0.1 + i * 0.22 });
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y - 12);
+    ctx.lineTo(a.x, a.y);
+    ctx.stroke();
+  }
+  // Trailer wheels
+  truckWheel(ctx, pos.x + 0.5, pos.y + 0.35);
+  truckWheel(ctx, pos.x + 0.5, pos.y + 0.85);
+  truckWheel(ctx, pos.x + 0.5, pos.y + 1.25);
+
+  // Cab (in front of trailer, towards +y direction)
+  drawBox(ctx, { x: pos.x + 0.02, y: pos.y - 0.7 }, 0.46, 0.55, 9,
+    C.truckBody, C.truckDark, shade(C.truckBody, -15));
+  // engine hood (lower)
+  drawBox(ctx, { x: pos.x + 0.05, y: pos.y - 1.05 }, 0.4, 0.35, 6,
+    shade(C.truckBody, -8), C.truckDark, shade(C.truckBody, -20));
+  // windshield
+  const wp = iso({ x: pos.x + 0.05, y: pos.y - 0.65 });
+  ctx.fillStyle = "rgba(125,210,255,0.85)";
+  ctx.beginPath();
+  ctx.moveTo(wp.x + 2, wp.y - 9);
+  ctx.lineTo(wp.x + 14, wp.y - 9);
+  ctx.lineTo(wp.x + 12, wp.y - 4);
+  ctx.lineTo(wp.x + 4, wp.y - 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.4)";
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+  // headlights
+  ctx.fillStyle = "#fde68a";
+  const hp = iso({ x: pos.x + 0.05, y: pos.y - 1.05 });
+  ctx.fillRect(hp.x + 2, hp.y - 2, 3, 2);
+  ctx.fillRect(hp.x + 10, hp.y - 2, 3, 2);
+  // cab wheels
+  truckWheel(ctx, pos.x + 0.5, pos.y - 0.45);
+  truckWheel(ctx, pos.x + 0.5, pos.y - 0.95);
+}
+
+function truckWheel(ctx: CanvasRenderingContext2D, wx: number, wy: number) {
+  const p = iso({ x: wx, y: wy });
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y, 3.5, 2.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#475569";
+  ctx.beginPath();
+  ctx.ellipse(p.x, p.y - 0.5, 1.5, 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawTrain(ctx: CanvasRenderingContext2D, baseX: number, ry: number, v: Vehicle) {
+  // Locomotive at front (right side)
+  const locoX = baseX;
+  // shadow
+  const sp = iso({ x: locoX + 0.7, y: ry + 0.55 });
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(sp.x, sp.y + 4, 60, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Locomotive chassis
+  drawBox(ctx, { x: locoX - 0.1, y: ry + 0.25 }, 1.7, 0.55, 3, "#1f2937", "#0b1220", "#111827");
+  // Loco body
+  drawBox(ctx, { x: locoX, y: ry + 0.3 }, 1.5, 0.45, 10,
+    C.trainBody, C.trainDark, shade(C.trainBody, -15));
+  // Loco nose (slanted front block)
+  drawBox(ctx, { x: locoX + 1.5, y: ry + 0.32 }, 0.25, 0.4, 7,
+    shade(C.trainBody, 8), C.trainDark, shade(C.trainBody, -10));
+  // Cab windows stripe
+  const lp = iso({ x: locoX + 0.1, y: ry + 0.35 });
+  ctx.fillStyle = "rgba(125,210,255,0.8)";
+  ctx.fillRect(lp.x + 4, lp.y - 9, 22, 3);
+  // Yellow safety stripe along side
+  ctx.fillStyle = "#fde047";
+  ctx.fillRect(lp.x + 4, lp.y - 2, 36, 1.5);
+  // headlight
+  ctx.fillStyle = "#fef9c3";
+  const np = iso({ x: locoX + 1.7, y: ry + 0.5 });
+  ctx.beginPath();
+  ctx.arc(np.x + 2, np.y - 6, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4 freight cars behind locomotive (to the left, lower X)
+  for (let i = 1; i <= 4; i++) {
+    const cx = locoX - i * 1.7;
+    // chassis
+    drawBox(ctx, { x: cx, y: ry + 0.28 }, 1.5, 0.5, 3, "#1f2937", "#0b1220", "#111827");
+    // flatcar deck
+    drawBox(ctx, { x: cx + 0.05, y: ry + 0.32 }, 1.4, 0.42, 4,
+      "#334155", "#0f172a", "#1e293b");
+    // container if loaded enough
+    if (v.load > (i - 1) * (v.capacity / 4)) {
+      const palette = ["#22d3ee", "#f59e0b", "#10b981", "#a78bfa"];
+      const col = palette[(i - 1) % palette.length];
+      drawBox(ctx, { x: cx + 0.1, y: ry + 0.35 }, 1.3, 0.38, 10,
+        col, shade(col, -28), shade(col, -14));
+      // container corrugations
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.lineWidth = 0.6;
+      for (let j = 1; j < 6; j++) {
+        const a = iso({ x: cx + 0.1 + (j * 1.3) / 6, y: ry + 0.35 });
+        const b = iso({ x: cx + 0.1 + (j * 1.3) / 6, y: ry + 0.73 });
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y - 10);
+        ctx.lineTo(b.x, b.y - 10);
+        ctx.stroke();
+      }
+    }
+    // wheels
+    truckWheel(ctx, cx + 0.25, ry + 0.78);
+    truckWheel(ctx, cx + 1.25, ry + 0.78);
+  }
+}
+
 
 // ------- utils -------
 function hexA(hex: string, a: number) {
