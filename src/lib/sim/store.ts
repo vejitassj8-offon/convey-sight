@@ -71,8 +71,9 @@ export const useSim = create<SimState & {
   zones: Object.fromEntries(ZONE_DEFS.map((z) => [z.id, z])) as Record<ZoneId, Zone>,
   history: Array.from({ length: 24 }, (_, i) => ({
     t: i,
-    throughput: 30 + Math.round(Math.sin(i / 3) * 8 + Math.random() * 6),
-    utilization: 40 + Math.round(Math.cos(i / 4) * 10 + Math.random() * 8),
+    // Deterministic so SSR and client render the same values (avoid hydration mismatch).
+    throughput: 30 + Math.round(Math.sin(i / 3) * 8 + Math.cos(i * 1.3) * 4),
+    utilization: 40 + Math.round(Math.cos(i / 4) * 10 + Math.sin(i * 0.9) * 5),
   })) as KpiHistoryPoint[],
   totals: { delivered: 1284, revenue: 482300, onTime: 1198, late: 86, dwellSum: 0, dwellCount: 0 },
   selected: null,
